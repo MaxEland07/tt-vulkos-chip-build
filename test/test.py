@@ -123,14 +123,14 @@ async def test_reset_restarts_animation(dut):
     if GATES:
         return
     await start(dut)
-    dut.stage.value = 5
-    dut.r.value = 77
+    dut.user_project.stage.value = 5
+    dut.user_project.r.value = 77
     await ClockCycles(dut.clk, 3)
     dut.rst_n.value = 0
     await ClockCycles(dut.clk, 3)
     dut.rst_n.value = 1
     await ClockCycles(dut.clk, 2)
-    assert val(dut.stage) == 0 and val(dut.r) == 0
+    assert val(dut.user_project.stage) == 0 and val(dut.user_project.r) == 0
 
 
 # ---------------------------------------------------------------------------
@@ -248,11 +248,11 @@ async def stage_lengths(dut, first, last):
     await frames(dut, 1)
     for stage in range(first, last + 1):
         length = STAGE_LEN[stage]
-        dut.stage.value = stage
-        dut.r.value = length - 1
+        dut.user_project.stage.value = stage
+        dut.user_project.r.value = length - 1
         await frames(dut, 1)
         expect = (stage + 1) % len(STAGE_LEN)
-        got = (val(dut.stage), val(dut.r))
+        got = (val(dut.user_project.stage), val(dut.user_project.r))
         assert got == (expect, 0), f'stage {stage} after its last frame: expected ({expect}, 0), got {got}'
 
 
@@ -282,9 +282,9 @@ async def test_frame_counter_counts_every_frame(dut):
         return
     await start(dut)
     await frames(dut, 1)
-    r0 = val(dut.r)
+    r0 = val(dut.user_project.r)
     await frames(dut, 2)
-    assert val(dut.r) == r0 + 2
+    assert val(dut.user_project.r) == r0 + 2
 
 
 @cocotb.test()
@@ -296,12 +296,12 @@ async def test_hold_freezes(dut):
     await frames(dut, 1)
     dut.ui_in.value = 1
     await ClockCycles(dut.clk, 4)  # through the synchroniser
-    r0, s0 = val(dut.r), val(dut.stage)
+    r0, s0 = val(dut.user_project.r), val(dut.user_project.stage)
     await frames(dut, 2)
-    assert (val(dut.r), val(dut.stage)) == (r0, s0), 'hold did not freeze the animation'
+    assert (val(dut.user_project.r), val(dut.user_project.stage)) == (r0, s0), 'hold did not freeze the animation'
     dut.ui_in.value = 0
     await frames(dut, 1)
-    assert val(dut.r) == r0 + 1, 'did not resume after hold was released'
+    assert val(dut.user_project.r) == r0 + 1, 'did not resume after hold was released'
 
 
 @cocotb.test()
@@ -312,16 +312,16 @@ async def test_step_moves_one_frame_per_press(dut):
         return
     await start(dut, hold=1)
     await frames(dut, 1)
-    r0 = val(dut.r)
+    r0 = val(dut.user_project.r)
     dut.ui_in.value = 0b11            # press step
     await frames(dut, 2)              # hold it across two frames
-    assert val(dut.r) == r0 + 1, f'one press should move one frame, moved {val(dut.r) - r0}'
+    assert val(dut.user_project.r) == r0 + 1, f'one press should move one frame, moved {val(dut.user_project.r) - r0}'
     dut.ui_in.value = 0b01            # release
     await frames(dut, 1)
-    assert val(dut.r) == r0 + 1, 'releasing step moved the animation'
+    assert val(dut.user_project.r) == r0 + 1, 'releasing step moved the animation'
     dut.ui_in.value = 0b11            # press again
     await frames(dut, 1)
-    assert val(dut.r) == r0 + 2, 'second press did not move one frame'
+    assert val(dut.user_project.r) == r0 + 2, 'second press did not move one frame'
 
 
 @cocotb.test()
@@ -332,13 +332,13 @@ async def test_button_glitch_is_filtered(dut):
         return
     await start(dut, hold=1)
     await frames(dut, 1)
-    r0 = val(dut.r)
+    r0 = val(dut.user_project.r)
     await ClockCycles(dut.clk, 1000)  # mid-frame
     dut.ui_in.value = 0b11
     await ClockCycles(dut.clk, 1)
     dut.ui_in.value = 0b01
     await frames(dut, 1)
-    assert val(dut.r) == r0, 'a mid-frame glitch on step advanced the animation'
+    assert val(dut.user_project.r) == r0, 'a mid-frame glitch on step advanced the animation'
 
 
 # ---------------------------------------------------------------------------
@@ -382,11 +382,11 @@ async def row_pixels(dut, y, x0, n):
     await line_start(dut, y)
     await ClockCycles(dut.clk, max(0, x0 - 8))
     for _ in range(24):
-        if val(dut.y) == y and val(dut.x) == x0:
+        if val(dut.user_project.y) == y and val(dut.user_project.x) == x0:
             break
         await RisingEdge(dut.clk)
-    assert val(dut.x) == x0 and val(dut.y) == y, \
-        f'could not line up on pixel ({x0}, {y}): at ({val(dut.x)}, {val(dut.y)})'
+    assert val(dut.user_project.x) == x0 and val(dut.user_project.y) == y, \
+        f'could not line up on pixel ({x0}, {y}): at ({val(dut.user_project.x)}, {val(dut.user_project.y)})'
     out = []
     for _ in range(n):
         out.append(rgb_of(dut))
@@ -401,7 +401,7 @@ async def label_pixels(dut, first, last):
     await start(dut, hold=1)
     for stage in range(first, last + 1):
         name = stages[stage]
-        dut.stage.value = stage
+        dut.user_project.stage.value = stage
         for k, row in enumerate((0, 3, 6)):
             y = 16 + 2 * row
             if k == 0:
@@ -412,7 +412,7 @@ async def label_pixels(dut, first, last):
                     await FallingEdge(dut.hsync)
                 await ClockCycles(dut.clk, H_BACK + H_SYNC)
                 for _ in range(24):
-                    if val(dut.y) == y and val(dut.x) == 16:
+                    if val(dut.user_project.y) == y and val(dut.user_project.x) == 16:
                         break
                     await RisingEdge(dut.clk)
                 got = [rgb_of(dut)]
@@ -453,8 +453,8 @@ async def test_package_logo_matches_rom(dut):
         return
     bitmap = read_rom_bitmap(HERE.parent / 'src' / 'logo.v', 128, 30)
     await start(dut, hold=1)
-    dut.stage.value = 8
-    dut.r.value = 200
+    dut.user_project.stage.value = 8
+    dut.user_project.r.value = 200
     body, mark = 0b010101, 0b101010
     rows = (3, 10, 15, 22, 28)
     got = await row_pixels(dut, 225 + rows[0], 256, 128)
@@ -464,7 +464,7 @@ async def test_package_logo_matches_rom(dut):
             await FallingEdge(dut.hsync)
         await ClockCycles(dut.clk, H_BACK + H_SYNC)
         for _ in range(300):
-            if val(dut.y) == 225 + row and val(dut.x) == 256:
+            if val(dut.user_project.y) == 225 + row and val(dut.user_project.x) == 256:
                 break
             await RisingEdge(dut.clk)
         got = [rgb_of(dut)]
@@ -511,11 +511,11 @@ async def at_pixel(dut, x, y):
     await line_start(dut, y)
     await ClockCycles(dut.clk, max(0, x - 8))
     for _ in range(24):
-        if val(dut.y) == y and val(dut.x) == x:
+        if val(dut.user_project.y) == y and val(dut.user_project.x) == x:
             break
         await RisingEdge(dut.clk)
-    assert val(dut.x) == x and val(dut.y) == y, \
-        f'could not line up on pixel ({x}, {y}): at ({val(dut.x)}, {val(dut.y)})'
+    assert val(dut.user_project.x) == x and val(dut.user_project.y) == y, \
+        f'could not line up on pixel ({x}, {y}): at ({val(dut.user_project.x)}, {val(dut.user_project.y)})'
 
 
 @cocotb.test()
@@ -529,10 +529,10 @@ async def test_route_layers_sweep_once(dut):
     await start(dut, hold=1)
     cases = [(110, 0, 0), (120, 1, 0), (128, 1, 0), (140, 1, 0), (179, 1, 1)]
     for r, want_m2, want_m3 in cases:
-        dut.stage.value = 5
-        dut.r.value = r
+        dut.user_project.stage.value = 5
+        dut.user_project.r.value = r
         await at_pixel(dut, 300, 328)
-        got = (val(dut.m2_vis), val(dut.m3_vis))
+        got = (val(dut.user_project.m2_vis), val(dut.user_project.m3_vis))
         assert got == (want_m2, want_m3), f'route frame {r}: metal 2 and metal 3 visible {got}, expected {(want_m2, want_m3)}'
 
 
@@ -544,7 +544,7 @@ async def test_package_stays_to_the_end(dut):
         return
     await start(dut, hold=1)
     for r in (236, 239):
-        dut.stage.value = 8
-        dut.r.value = r
+        dut.user_project.stage.value = 8
+        dut.user_project.r.value = r
         await at_pixel(dut, 320, 200)
-        assert val(dut.pkg_vis) == 1, f'package not drawn at frame {r} of its stage'
+        assert val(dut.user_project.pkg_vis) == 1, f'package not drawn at frame {r} of its stage'
